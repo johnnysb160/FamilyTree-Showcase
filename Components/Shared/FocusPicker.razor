@@ -1,0 +1,75 @@
+@using System.Globalization
+
+@if (IsOpen)
+{
+    <div class="fp-backdrop" @onclick="OnClose"></div>
+    <div class="fp" role="dialog" aria-label="Escolher pessoa em foco">
+        <div class="fp-head">
+            <div>
+                <div class="fp-title">Ver a árvore a partir de…</div>
+                <div class="fp-sub">Escolha você mesmo(a): todos os parentescos são recalculados a partir dessa pessoa.</div>
+            </div>
+            <button class="fp-close" title="Fechar" @onclick="OnClose">
+                <svg viewBox="0 0 24 24" width="18" height="18"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" /></svg>
+            </button>
+        </div>
+        <div class="fp-search">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7" /><path d="M20 20l-3.5-3.5" stroke-linecap="round" /></svg>
+            <input @ref="input" placeholder="Digite um nome…" value="@query" @oninput="e => query = e.Value?.ToString() ?? string.Empty" />
+        </div>
+        <div class="fp-list">
+            @foreach (var p in Matches)
+            {
+                <button class="fp-item @(p.Id == CurrentId ? "current" : "")" @onclick="() => OnSelect.InvokeAsync(p.Id)">
+                    <Avatar Person="p" Css="ft-avatar-xs" />
+                    <span class="fp-text">
+                        <b>@p.Name</b>
+                        <small>@string.Join(" · ", new[] { LabelOf?.Invoke(p), p.Years }.Where(x => !string.IsNullOrWhiteSpace(x)))</small>
+                    </span>
+                    @if (p.Id == CurrentId)
+                    {
+                        <span class="fp-badge">em foco</span>
+                    }
+                </button>
+            }
+            @if (Matches.Count == 0)
+            {
+                <div class="fp-empty">Ninguém encontrado com “@query”.</div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public List<Relative> People { get; set; } = [];
+    [Parameter] public int CurrentId { get; set; }
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public EventCallback<int> OnSelect { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    // Relationship to the current focus, shown under each name
+    [Parameter] public Func<Relative, string?>? LabelOf { get; set; }
+
+    ElementReference input;
+    string query = "";
+    bool wasOpen;
+
+    static readonly CompareInfo Compare = new CultureInfo("pt-BR").CompareInfo;
+
+    List<Relative> Matches => People
+        .Where(p => query.Trim().Length == 0
+                    || Compare.IndexOf(p.Name, query.Trim(), CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace) >= 0
+                    || (p.OtherNames is { } o && Compare.IndexOf(o, query.Trim(), CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace) >= 0))
+        .OrderBy(p => p.Name, StringComparer.Create(new CultureInfo("pt-BR"), true))
+        .ToList();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        // Focus the search box each time the picker opens
+        if (IsOpen && !wasOpen)
+        {
+            query = "";
+            try { await input.FocusAsync(); } catch (InvalidOperationException) { }
+        }
+        wasOpen = IsOpen;
+    }
+}

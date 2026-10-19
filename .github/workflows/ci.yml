@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-test-and-migrate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore tools
+        run: dotnet tool restore
+
+      - name: Restore dependencies
+        run: dotnet restore FamilyTree.slnx
+
+      - name: Build
+        run: dotnet build FamilyTree.slnx --configuration Release --no-restore --nologo
+
+      - name: Test
+        run: dotnet test FamilyTree.slnx --configuration Release --no-build --nologo
+
+      - name: Apply migrations to a fresh database
+        run: dotnet ef database update --project FamilyTree.csproj --connection "Data Source=familytree-ci.db"
+
+      - name: Audit dependencies
+        run: dotnet list FamilyTree.slnx package --vulnerable --include-transitive

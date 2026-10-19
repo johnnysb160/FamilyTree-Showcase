@@ -1,0 +1,34 @@
+namespace FamilyTree.Data;
+
+// Fictional people created exclusively for the public showcase.
+public static class SeedData
+{
+    public static readonly Relative[] Relatives =
+    [
+        new() { Id = 1, Name = "Lucas Almeida", Sex = "M", Relationship = "Você", BirthDate = new DateOnly(1990, 4, 18), BirthPlace = "Porto Claro", BirthCountry = "Brasil", IsDeceased = false, FatherId = 2, MotherId = 3, SpouseId = 4, Confidence = "Confirmado", IsRoot = true },
+        new() { Id = 2, Name = "Rafael Almeida", Sex = "M", Relationship = "Pai", BirthDate = new DateOnly(1962, 8, 7), BirthPlace = "Vale Sereno", BirthCountry = "Brasil", IsDeceased = false, FatherId = 6, MotherId = 7, SpouseId = 3, Confidence = "Confirmado" },
+        new() { Id = 3, Name = "Marina Costa", Sex = "F", Relationship = "Mãe", BirthDate = new DateOnly(1964, 2, 21), BirthPlace = "Santa Aurora", BirthCountry = "Brasil", IsDeceased = false, FatherId = 8, MotherId = 9, Confidence = "Confirmado" },
+        new() { Id = 4, Name = "Sofia Martins", Sex = "F", Relationship = "Esposa", BirthDate = new DateOnly(1992, 11, 5), BirthPlace = "Porto Claro", BirthCountry = "Brasil", IsDeceased = false, Confidence = "Confirmado" },
+        new() { Id = 5, Name = "Clara Almeida", Sex = "F", Relationship = "Filha", BirthDate = new DateOnly(2018, 7, 12), BirthPlace = "Porto Claro", BirthCountry = "Brasil", IsDeceased = false, FatherId = 1, MotherId = 4, Confidence = "Confirmado" },
+        new() { Id = 6, Name = "Antonio Almeida", Sex = "M", Relationship = "Avô paterno", BirthDate = new DateOnly(1933, 1, 14), BirthPlace = "Serra Azul", BirthCountry = "Brasil", IsDeceased = true, DeathDate = new DateOnly(2010, 6, 3), FatherId = 10, MotherId = 11, SpouseId = 7, Confidence = "Confirmado" },
+        new() { Id = 7, Name = "Helena Duarte", Sex = "F", Relationship = "Avó paterna", BirthDate = new DateOnly(1938, 9, 30), BirthPlace = "Nova Esperança", BirthCountry = "Brasil", IsDeceased = false, FatherId = 12, MotherId = 13, Confidence = "Confirmado" },
+        new() { Id = 8, Name = "Paulo Costa", Sex = "M", Relationship = "Avô materno", BirthDate = new DateOnly(1935, 5, 9), BirthPlace = "Santa Aurora", BirthCountry = "Brasil", IsDeceased = true, DeathDate = new DateOnly(2016, 10, 27), FatherId = 14, MotherId = 15, SpouseId = 9, Confidence = "Confirmado" },
+        new() { Id = 9, Name = "Teresa Nunes", Sex = "F", Relationship = "Avó materna", BirthDate = new DateOnly(1940, 3, 16), BirthPlace = "Campo Dourado", BirthCountry = "Brasil", IsDeceased = false, FatherId = 16, MotherId = 17, Confidence = "Confirmado" },
+        new() { Id = 10, Name = "Joaquim Almeida", Sex = "M", Relationship = "Bisavô paterno", BirthDate = new DateOnly(1905, 12, 2), BirthPlace = "Serra Azul", BirthCountry = "Brasil", IsDeceased = true, DeathDate = new DateOnly(1980, 4, 19), SpouseId = 11, Confidence = "Confirmado" },
+        new() { Id = 11, Name = "Beatriz Rocha", Sex = "F", Relationship = "Bisavó paterna", BirthDate = new DateOnly(1910, 6, 24), BirthPlace = "Serra Azul", BirthCountry = "Brasil", IsDeceased = true, DeathDate = new DateOnly(1992, 8, 11), Confidence = "Confirmado" },
+        new() { Id = 12, Name = "Manuel Duarte", Sex = "M", Relationship = "Bisavô paterno", BirthDate = new DateOnly(1908, 10, 8), BirthPlace = "Vila das Fontes", BirthCountry = "Portugal", IsDeceased = true, DeathDate = new DateOnly(1985, 2, 6), SpouseId = 13, Confidence = "Confirmado" },
+        new() { Id = 13, Name = "Rosa Pereira", Sex = "F", Relationship = "Bisavó paterna", BirthDate = new DateOnly(1913, 4, 1), BirthPlace = "Vila das Fontes", BirthCountry = "Portugal", IsDeceased = true, DeathDate = new DateOnly(1998, 12, 20), Confidence = "Confirmado" },
+        new() { Id = 14, Name = "Eduardo Costa", Sex = "M", Relationship = "Bisavô materno", BirthDate = new DateOnly(1906, 7, 17), BirthPlace = "Santa Aurora", BirthCountry = "Brasil", IsDeceased = true, DeathDate = new DateOnly(1979, 3, 29), SpouseId = 15, Confidence = "Confirmado" },
+        new() { Id = 15, Name = "Amelia Santos", Sex = "F", Relationship = "Bisavó materna", BirthDate = new DateOnly(1911, 1, 26), BirthPlace = "Santa Aurora", BirthCountry = "Brasil", IsDeceased = true, DeathDate = new DateOnly(2001, 9, 14), Confidence = "Confirmado" },
+        new() { Id = 16, Name = "Bento Nunes", Sex = "M", Relationship = "Bisavô materno", BirthDate = new DateOnly(1909, 11, 13), BirthPlace = "Campo Dourado", BirthCountry = "Brasil", IsDeceased = true, DeathDate = new DateOnly(1988, 7, 5), SpouseId = 17, Confidence = "Confirmado" },
+        new() { Id = 17, Name = "Laura Ferreira", Sex = "F", Relationship = "Bisavó materna", BirthDate = new DateOnly(1914, 8, 22), BirthPlace = "Campo Dourado", BirthCountry = "Brasil", IsDeceased = true, DeathDate = new DateOnly(2003, 5, 18), Confidence = "Confirmado" },
+        new() { Id = 18, Name = "Beatriz Almeida", Sex = "F", Relationship = "Irmã", BirthDate = new DateOnly(1988, 12, 9), BirthPlace = "Porto Claro", BirthCountry = "Brasil", IsDeceased = false, FatherId = 2, MotherId = 3, SpouseId = 19, Confidence = "Confirmado" },
+        new() { Id = 19, Name = "Miguel Sousa", Sex = "M", Relationship = "Cunhado", BirthDate = new DateOnly(1987, 6, 28), BirthPlace = "Vale Sereno", BirthCountry = "Brasil", IsDeceased = false, Confidence = "Confirmado" },
+        new() { Id = 20, Name = "Theo Sousa", Sex = "M", Relationship = "Sobrinho", BirthDate = new DateOnly(2015, 2, 3), BirthPlace = "Porto Claro", BirthCountry = "Brasil", IsDeceased = false, FatherId = 19, MotherId = 18, Confidence = "Confirmado" },
+        new() { Id = 21, Name = "Daniel Almeida", Sex = "M", Relationship = "Tio paterno", BirthDate = new DateOnly(1967, 10, 2), BirthPlace = "Vale Sereno", BirthCountry = "Brasil", IsDeceased = false, FatherId = 6, MotherId = 7, SpouseId = 22, Confidence = "Confirmado" },
+        new() { Id = 22, Name = "Patricia Lima", Sex = "F", Relationship = "Tia por afinidade", BirthDate = new DateOnly(1968, 3, 25), BirthPlace = "Nova Esperança", BirthCountry = "Brasil", IsDeceased = false, Confidence = "Confirmado" },
+        new() { Id = 23, Name = "Gabriela Almeida", Sex = "F", Relationship = "Prima", BirthDate = new DateOnly(1994, 9, 11), BirthPlace = "Vale Sereno", BirthCountry = "Brasil", IsDeceased = false, FatherId = 21, MotherId = 22, Confidence = "Confirmado" },
+        new() { Id = 24, Name = "Rosa Costa", Sex = "F", Relationship = "Tia materna", BirthDate = new DateOnly(1969, 5, 14), BirthPlace = "Santa Aurora", BirthCountry = "Brasil", IsDeceased = false, FatherId = 8, MotherId = 9, Confidence = "Confirmado" },
+        new() { Id = 25, Name = "Tomas Duarte", Sex = "M", Relationship = "Tio-avô paterno", BirthDate = new DateOnly(1936, 7, 19), BirthPlace = "Vila das Fontes", BirthCountry = "Portugal", IsDeceased = false, FatherId = 12, MotherId = 13, Confidence = "Confirmado" },
+    ];
+}

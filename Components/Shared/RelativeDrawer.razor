@@ -1,0 +1,176 @@
+<div class="drawer-backdrop @(IsOpen ? "open" : "")" @onclick="OnClose"></div>
+
+<aside class="drawer @(IsOpen ? "open" : "")" aria-hidden="@(!IsOpen)">
+    @if (Details is { } d)
+    {
+        var p = d.Person;
+        <div class="drawer-hero drawer-@(p.Sex == "F" ? "f" : "m")">
+            <button class="drawer-close" title="Fechar" @onclick="OnClose">
+                <svg viewBox="0 0 24 24" width="18" height="18"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" /></svg>
+            </button>
+            <Avatar Person="p" Css="ft-avatar-xl" />
+            <h2>@p.Name</h2>
+            @if (!string.IsNullOrWhiteSpace(p.OtherNames))
+            {
+                <div class="drawer-alt">também registrado como <b>@p.OtherNames</b></div>
+            }
+            <div class="drawer-chips">
+                @if (p.IsDeceased == true)
+                {
+                    <span class="drawer-chip drawer-chip-dark">✝ Falecido</span>
+                }
+                else if (p.IsDeceased == false)
+                {
+                    <span class="drawer-chip drawer-chip-green">● Vivo</span>
+                }
+                @if (p.Age is { } age)
+                {
+                    <span class="drawer-chip">@(p.IsDeceased == true ? $"viveu {age} anos" : $"{age} anos")</span>
+                }
+                @if (!string.IsNullOrEmpty(p.Confidence) && p.Confidence != "Confirmado")
+                {
+                    <span class="drawer-chip drawer-chip-amber">@p.Confidence</span>
+                }
+            </div>
+            @if (!string.IsNullOrWhiteSpace(d.Kinship))
+            {
+                <div class="drawer-relationship">
+                    @d.Kinship
+                    @if (d.Kinship != "Você" && !string.IsNullOrEmpty(FocusName))
+                    {
+                        <small>de @FocusName</small>
+                    }
+                </div>
+            }
+        </div>
+
+        <div class="drawer-body">
+            <div class="drawer-timeline">
+                <div class="drawer-event">
+                    <div class="drawer-event-icon">★</div>
+                    <div>
+                        <div class="drawer-label">Nascimento</div>
+                        <div class="drawer-value">@(p.BirthDate?.ToString("dd 'de' MMMM 'de' yyyy") ?? "Data desconhecida")</div>
+                        <div class="drawer-sub">@Join(p.BirthPlace, p.BirthCountry)</div>
+                    </div>
+                </div>
+                @if (p.IsDeceased == true || p.DeathDate is not null)
+                {
+                    <div class="drawer-event">
+                        <div class="drawer-event-icon drawer-dark">✝</div>
+                        <div>
+                            <div class="drawer-label">Falecimento</div>
+                            <div class="drawer-value">@(p.DeathDate?.ToString("dd 'de' MMMM 'de' yyyy") ?? "Data desconhecida")</div>
+                            <div class="drawer-sub">@p.DeathPlace</div>
+                            @if (!string.IsNullOrWhiteSpace(p.BurialPlace))
+                            {
+                                <div class="drawer-sub">Sepultado(a) em @p.BurialPlace</div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+
+            @if (!string.IsNullOrWhiteSpace(p.Occupation))
+            {
+                <div class="drawer-section"><div class="drawer-label">Profissão</div><div class="drawer-value">@p.Occupation</div></div>
+            }
+
+            <div class="drawer-section">
+                <div class="drawer-title">Família</div>
+                @Group("Pais", new[] { d.Father, d.Mother }.OfType<Relative>().ToList())
+                @if (d.Spouses.Count > 0 || !string.IsNullOrWhiteSpace(p.SpouseName))
+                {
+                    <div class="drawer-group">
+                        <div class="drawer-label">Cônjuge</div>
+                        <div class="drawer-people">
+                            @foreach (var s in d.Spouses)
+                            {
+                                @PersonButton(s)
+                            }
+                            @if (!string.IsNullOrWhiteSpace(p.SpouseName))
+                            {
+                                <span class="drawer-person drawer-person-text">⚭ @p.SpouseName</span>
+                            }
+                        </div>
+                    </div>
+                }
+                @* Only children in common: no marriage is assumed *@
+                @Group("Tem filhos com", d.CoParents)
+                @Group("Filhos", d.Children)
+                @Group("Irmãos", d.Siblings)
+                <div class="drawer-group">
+                    <div class="drawer-label">Adicionar parente</div>
+                    <div class="drawer-add">
+                        <a href="@AddLink(p.Id, "child")">+ Filho(a)</a>
+                        <a href="@AddLink(p.Id, "spouse")">+ Cônjuge</a>
+                        <a href="@AddLink(p.Id, "sibling")">+ Irmão(ã)</a>
+                        @if (d.Father is null)
+                        {
+                            <a href="@AddLink(p.Id, "father")">+ Pai</a>
+                        }
+                        @if (d.Mother is null)
+                        {
+                            <a href="@AddLink(p.Id, "mother")">+ Mãe</a>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            @foreach (var (title, text) in new[] { ("Biografia", p.Biography), ("Observações", p.Notes), ("Fontes", p.Sources) })
+            {
+                if (!string.IsNullOrWhiteSpace(text))
+                {
+                    <div class="drawer-section">
+                        <div class="drawer-title">@title</div>
+                        <ul class="drawer-notes">
+                            @foreach (var line in text.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                            {
+                                <li>@line</li>
+                            }
+                        </ul>
+                    </div>
+                }
+            }
+        </div>
+
+        <footer class="drawer-footer">
+            <button class="drawer-btn drawer-btn-primary" @onclick="() => OnFocus.InvokeAsync(p.Id)">Ver a árvore a partir de @p.Name.Split(' ')[0]</button>
+            <a class="drawer-btn" href="admin/edit/@p.Id">Editar</a>
+        </footer>
+    }
+</aside>
+
+@code {
+    [Parameter] public RelativeDetails? Details { get; set; }
+    // Person whose point of view the kinship is written from
+    [Parameter] public string? FocusName { get; set; }
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public EventCallback OnClose { get; set; }
+    [Parameter] public EventCallback<int> OnNavigate { get; set; }
+    [Parameter] public EventCallback<int> OnFocus { get; set; }
+
+    static string AddLink(int of, string kind) => $"admin/new?of={of}&as={kind}&back=tree";
+
+    static string Join(params string?[] parts) => string.Join(" · ", parts.Where(x => !string.IsNullOrWhiteSpace(x)));
+
+    RenderFragment PersonButton(Relative x) => @<button class="drawer-person" @onclick="() => OnNavigate.InvokeAsync(x.Id)">
+        <Avatar Person="x" Css="ft-avatar-xs" />
+        <span><b>@x.Name</b><small>@(string.IsNullOrEmpty(x.Years) ? "—" : x.Years)</small></span>
+    </button>;
+
+    RenderFragment Group(string title, List<Relative> people) => @<text>
+        @if (people.Count > 0)
+        {
+            <div class="drawer-group">
+                <div class="drawer-label">@title <span class="drawer-count">@people.Count</span></div>
+                <div class="drawer-people">
+                    @foreach (var x in people)
+                    {
+                        @PersonButton(x)
+                    }
+                </div>
+            </div>
+        }
+    </text>;
+}

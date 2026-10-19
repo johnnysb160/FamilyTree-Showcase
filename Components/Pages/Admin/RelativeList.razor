@@ -1,0 +1,89 @@
+@page "/admin"
+@rendermode InteractiveServer
+@inject IDbContextFactory<AppDbContext> DbFactory
+@using Microsoft.EntityFrameworkCore
+
+<PageTitle>Admin · Parentes</PageTitle>
+
+<div class="d-flex align-items-center gap-2 mb-3">
+    <h3 class="m-0">Parentes <span class="badge bg-secondary">@relatives.Count</span></h3>
+    <a class="btn btn-primary ms-auto" href="admin/new">+ Novo parente</a>
+</div>
+
+<input class="form-control mb-3" placeholder="Filtrar por nome, parentesco ou local…" @bind="filter" @bind:event="oninput" />
+
+<div class="table-responsive">
+    <table class="table table-sm table-hover align-middle">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Nome</th>
+                <th class="d-none d-md-table-cell">Sexo</th>
+                <th>Parentesco</th>
+                <th class="d-none d-md-table-cell">Nascimento</th>
+                <th class="d-none d-md-table-cell">Situação</th>
+                <th class="d-none d-md-table-cell">Pai</th>
+                <th class="d-none d-md-table-cell">Mãe</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var r in Filtered)
+            {
+                <tr>
+                    <td>@r.Id</td>
+                    <td><a href="admin/edit/@r.Id">@r.Name</a> @if (r.IsRoot) { <span class="badge bg-warning text-dark">raiz</span> }</td>
+                    <td class="d-none d-md-table-cell">@r.Sex</td>
+                    <td class="small">@r.Relationship</td>
+                    <td class="small d-none d-md-table-cell">@r.BirthDate?.ToString("dd/MM/yyyy") @r.BirthPlace</td>
+                    <td class="small d-none d-md-table-cell">@(r.IsDeceased switch { true => $"Falecido {r.DeathDate?.ToString("dd/MM/yyyy")}", false => "Vivo", _ => "?" })</td>
+                    <td class="small d-none d-md-table-cell">@NameOf(r.FatherId)</td>
+                    <td class="small d-none d-md-table-cell">@NameOf(r.MotherId)</td>
+                    <td class="text-nowrap">
+                        <a class="btn btn-sm btn-outline-primary" href="admin/edit/@r.Id">Editar</a>
+                        @if (confirmDeleteId == r.Id)
+                        {
+                            <button class="btn btn-sm btn-danger" @onclick="() => Delete(r.Id)">Confirmar</button>
+                            <button class="btn btn-sm btn-link" @onclick="() => confirmDeleteId = null">Cancelar</button>
+                        }
+                        else
+                        {
+                            <button class="btn btn-sm btn-outline-danger" @onclick="() => confirmDeleteId = r.Id">Excluir</button>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@code {
+    List<Relative> relatives = [];
+    string filter = "";
+    int? confirmDeleteId;
+
+    IEnumerable<Relative> Filtered => string.IsNullOrWhiteSpace(filter) ? relatives :
+        relatives.Where(r => $"{r.Name} {r.OtherNames} {r.Relationship} {r.BirthPlace}".Contains(filter, StringComparison.OrdinalIgnoreCase));
+
+    string? NameOf(int? id) => id is null ? null : relatives.FirstOrDefault(x => x.Id == id)?.Name;
+
+    protected override async Task OnInitializedAsync() => await Load();
+
+    async Task Load()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        relatives = await db.Relatives.AsNoTracking().OrderBy(r => r.Name).ToListAsync();
+    }
+
+    async Task Delete(int id)
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        // Unlink children before deleting
+        await db.Relatives.Where(r => r.FatherId == id).ExecuteUpdateAsync(s => s.SetProperty(r => r.FatherId, (int?)null));
+        await db.Relatives.Where(r => r.MotherId == id).ExecuteUpdateAsync(s => s.SetProperty(r => r.MotherId, (int?)null));
+        await db.Relatives.Where(r => r.SpouseId == id).ExecuteUpdateAsync(s => s.SetProperty(r => r.SpouseId, (int?)null));
+        await db.Relatives.Where(r => r.Id == id).ExecuteDeleteAsync();
+        confirmDeleteId = null;
+        await Load();
+    }
+}

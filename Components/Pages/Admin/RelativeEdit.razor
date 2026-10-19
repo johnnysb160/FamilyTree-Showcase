@@ -1,0 +1,579 @@
+@page "/admin/new"
+@page "/admin/edit/{Id:int}"
+@rendermode InteractiveServer
+@inject IDbContextFactory<AppDbContext> DbFactory
+@inject NavigationManager Nav
+@inject PhotoStorage Photos
+@using Microsoft.EntityFrameworkCore
+
+<PageTitle>Admin · @(IsNew ? "Novo parente" : model.Name)</PageTitle>
+
+@if (loaded)
+{
+<div class="re">
+    <div class="re-head">
+        <a class="re-back" href="@BackUrl">←</a>
+        <div class="re-head-text">
+            <h3>@(IsNew ? "Novo parente" : model.Name)</h3>
+            @if (!string.IsNullOrWhiteSpace(model.Relationship))
+            {
+                <span class="badge text-bg-light border">@model.Relationship</span>
+            }
+        </div>
+    </div>
+
+    @if (savedName is not null)
+    {
+        <div class="alert alert-success py-2">✓ <b>@savedName</b> salvo. Pode cadastrar o próximo.</div>
+    }
+    @if (error is not null)
+    {
+        <div class="alert alert-danger py-2">@error</div>
+    }
+
+    <EditForm EditContext="editContext" OnSubmit="() => Save(false)">
+        <DataAnnotationsValidator />
+
+        @* ---------- 1. Quick link: "this person is the ___ of ___" ---------- *@
+        @if (IsNew)
+        {
+            <section class="re-card re-link">
+                <div class="re-card-title">Quem é essa pessoa?</div>
+                <div class="re-chips">
+                    @foreach (var (key, label) in LinkTypes)
+                    {
+                        <button type="button" class="re-chip @(linkAs == key ? "active" : "")" @onclick="() => SetLinkType(key)">@label</button>
+                    }
+                </div>
+                @if (linkAs is not null)
+                {
+                    <div class="re-link-of">
+                        <span>de</span>
+                        <div class="flex-grow-1">
+                            <PersonPicker People="all" Value="linkOf" ValueChanged="SetLinkOf"
+                                          Placeholder="Digite o nome de quem já está na árvore…"
+                                          Suggestions="QuickLinkSuggestions" />
+                        </div>
+                    </div>
+                    @if (LinkHint is { } hint)
+                    {
+                        <div class="re-hint">@hint</div>
+                    }
+                }
+            </section>
+        }
+
+        @* ---------- 2. Essentials ---------- *@
+        <section class="re-card">
+            <div class="re-card-title">Dados principais</div>
+            <div class="row g-3">
+                <div class="col-12 col-md-8">
+                    <label class="form-label">Nome completo</label>
+                    <InputText class="form-control form-control-lg" @bind-Value="model.Name" placeholder="Ex.: Pedro Souza Barros" />
+                    <ValidationMessage For="() => model.Name" />
+                    @if (SurnameSuggestions.Count > 0)
+                    {
+                        <div class="re-chips re-chips-sm mt-2">
+                            <small class="text-muted">Sobrenome:</small>
+                            @foreach (var s in SurnameSuggestions)
+                            {
+                                <button type="button" class="re-chip" @onclick="() => AppendSurname(s)">+ @s</button>
+                            }
+                        </div>
+                    }
+                </div>
+                <div class="col-12 col-md-4">
+                    <label class="form-label">Sexo</label>
+                    <div class="re-toggle">
+                        <button type="button" class="@(model.Sex == "M" ? "active m" : "")" @onclick='() => SetSex("M")'>Masculino</button>
+                        <button type="button" class="@(model.Sex == "F" ? "active f" : "")" @onclick='() => SetSex("F")'>Feminino</button>
+                    </div>
+                </div>
+
+                <div class="col-6 col-md-3">
+                    <label class="form-label">Nascimento</label>
+                    <InputDate class="form-control" @bind-Value="model.BirthDate" />
+                </div>
+                <div class="col-6 col-md-5">
+                    <label class="form-label">Cidade / local</label>
+                    <InputText class="form-control" @bind-Value="model.BirthPlace" list="places" placeholder="Ex.: Rio de Janeiro" />
+                </div>
+                <div class="col-12 col-md-4">
+                    <label class="form-label">País</label>
+                    <InputText class="form-control" @bind-Value="model.BirthCountry" list="countries" />
+                </div>
+
+                <div class="col-12">
+                    <label class="form-label">Situação</label>
+                    <div class="re-toggle re-toggle-3">
+                        <button type="button" class="@(model.IsDeceased == false ? "active" : "")" @onclick="() => model.IsDeceased = false">Vivo</button>
+                        <button type="button" class="@(model.IsDeceased == true ? "active dark" : "")" @onclick="() => model.IsDeceased = true">Falecido</button>
+                        <button type="button" class="@(model.IsDeceased is null ? "active muted" : "")" @onclick="() => model.IsDeceased = null">Não sei</button>
+                    </div>
+                </div>
+                @if (model.IsDeceased == true)
+                {
+                    <div class="col-6 col-md-3">
+                        <label class="form-label">Falecimento</label>
+                        <InputDate class="form-control" @bind-Value="model.DeathDate" />
+                    </div>
+                    <div class="col-6 col-md-5">
+                        <label class="form-label">Local</label>
+                        <InputText class="form-control" @bind-Value="model.DeathPlace" list="places" />
+                    </div>
+                    <div class="col-12 col-md-4">
+                        <label class="form-label">Sepultamento</label>
+                        <InputText class="form-control" @bind-Value="model.BurialPlace" />
+                    </div>
+                }
+            </div>
+        </section>
+
+        @* ---------- 3. Family ---------- *@
+        <section class="re-card">
+            <div class="re-card-title">Família</div>
+            <div class="row g-3">
+                <div class="col-12 col-md-6">
+                    <label class="form-label">Pai</label>
+                    <PersonPicker People="all" Sex="M" Exclude="model.Id" Value="model.FatherId" ValueChanged="SetFather"
+                                  Placeholder="Buscar pai…" Suggestions="FatherSuggestions" />
+                </div>
+                <div class="col-12 col-md-6">
+                    <label class="form-label">Mãe</label>
+                    <PersonPicker People="all" Sex="F" Exclude="model.Id" Value="model.MotherId" ValueChanged="SetMother"
+                                  Placeholder="Buscar mãe…" Suggestions="MotherSuggestions" />
+                </div>
+                <div class="col-12 col-md-6">
+                    <label class="form-label">Cônjuge</label>
+                    <PersonPicker People="all" Exclude="model.Id" Value="model.SpouseId" ValueChanged="SetSpouse"
+                                  Placeholder="Buscar cônjuge…" />
+                    @if (model.SpouseId is null)
+                    {
+                        <InputText class="form-control form-control-sm mt-2" @bind-Value="model.SpouseName" placeholder="…ou só o nome, se não estiver na árvore" />
+                    }
+                </div>
+                <div class="col-12 col-md-6">
+                    <label class="form-label d-flex justify-content-between">
+                        <span>Parentesco com você</span>
+                        <button type="button" class="btn btn-link btn-sm p-0" @onclick="RecalculateRelationship">↻ calcular</button>
+                    </label>
+                    <InputText class="form-control" @bind-Value="model.Relationship" @oninput="() => relationshipEdited = true" />
+                    <div class="form-text">Calculado automaticamente pela árvore. Pode editar.</div>
+                </div>
+            </div>
+
+            @if (!IsNew)
+            {
+                var children = FamilyTreeService.ChildrenOf(all, model.Id).ToList();
+                <div class="re-family mt-3">
+                    @if (children.Count > 0)
+                    {
+                        <div class="re-family-row">
+                            <small class="text-muted">Filhos:</small>
+                            @foreach (var c in children)
+                            {
+                                <a class="re-chip" href="admin/edit/@c.Id">@c.Name</a>
+                            }
+                        </div>
+                    }
+                    <div class="re-family-row">
+                        <small class="text-muted">Adicionar:</small>
+                        <a class="re-chip" href="@NewLink("child", model.Id)">+ Filho(a)</a>
+                        <a class="re-chip" href="@NewLink("spouse", model.Id)">+ Cônjuge</a>
+                        <a class="re-chip" href="@NewLink("sibling", model.Id)">+ Irmão(ã)</a>
+                        @if (model.FatherId is null)
+                        {
+                            <a class="re-chip" href="@NewLink("father", model.Id)">+ Pai</a>
+                        }
+                        @if (model.MotherId is null)
+                        {
+                            <a class="re-chip" href="@NewLink("mother", model.Id)">+ Mãe</a>
+                        }
+                    </div>
+                </div>
+            }
+        </section>
+
+        @* ---------- 4. Photo ---------- *@
+        <section class="re-card">
+            <div class="re-card-title">Foto</div>
+            <div class="re-photo">
+                @if (!string.IsNullOrWhiteSpace(model.PhotoUrl))
+                {
+                    <img src="@model.PhotoUrl" alt="" />
+                }
+                else
+                {
+                    <Avatar Person="model" Css="ft-avatar-xl re-photo-empty" />
+                }
+                <div class="flex-grow-1">
+                    <label class="btn btn-outline-primary btn-sm mb-2">
+                        📷 Enviar da máquina
+                        <InputFile class="d-none" accept="image/*" OnChange="UploadPhoto" />
+                    </label>
+                    @if (uploading)
+                    {
+                        <span class="spinner-border spinner-border-sm ms-2"></span>
+                    }
+                    <InputText class="form-control form-control-sm" @bind-Value="model.PhotoUrl" placeholder="…ou cole o link de uma imagem (https://…)" />
+                    @if (!string.IsNullOrWhiteSpace(model.PhotoUrl))
+                    {
+                        <button type="button" class="btn btn-link btn-sm px-0" @onclick="() => model.PhotoUrl = null">Remover foto</button>
+                    }
+                </div>
+            </div>
+        </section>
+
+        @* ---------- 5. More details (collapsed) ---------- *@
+        <section class="re-card">
+            <button type="button" class="re-more" @onclick="() => showMore = !showMore">
+                <span>Mais detalhes</span>
+                <small class="text-muted">apelido, outros nomes, profissão, CPF, notas, fontes…</small>
+                <span class="re-more-chevron @(showMore ? "open" : "")"></span>
+            </button>
+            @if (showMore)
+            {
+                <div class="row g-3 mt-1">
+                    <div class="col-12 col-md-6">
+                        <label class="form-label">Outros nomes / nome anterior</label>
+                        <InputText class="form-control" @bind-Value="model.OtherNames" />
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <label class="form-label">Apelido</label>
+                        <InputText class="form-control" @bind-Value="model.Nickname" />
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <label class="form-label">Confiança</label>
+                        <InputSelect class="form-select" @bind-Value="model.Confidence">
+                            <option value="Confirmado">Confirmado</option>
+                            <option value="Provável">Provável</option>
+                            <option value="Hipótese">Hipótese</option>
+                        </InputSelect>
+                    </div>
+                    <div class="col-6 col-md-6">
+                        <label class="form-label">Profissão</label>
+                        <InputText class="form-control" @bind-Value="model.Occupation" />
+                    </div>
+                    <div class="col-6 col-md-6">
+                        <label class="form-label">CPF</label>
+                        <InputText class="form-control" @bind-Value="model.TaxId" />
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label">Biografia</label>
+                        <InputTextArea class="form-control" rows="3" @bind-Value="model.Biography" />
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label class="form-label">Observações <small class="text-muted">(separe itens com ;)</small></label>
+                        <InputTextArea class="form-control" rows="3" @bind-Value="model.Notes" />
+                    </div>
+                    <div class="col-12 col-md-6">
+                        <label class="form-label">Fontes / documentos</label>
+                        <InputTextArea class="form-control" rows="3" @bind-Value="model.Sources" />
+                    </div>
+                    <div class="col-12">
+                        <div class="form-check">
+                            <InputCheckbox class="form-check-input" id="root" @bind-Value="model.IsRoot" />
+                            <label class="form-check-label" for="root">Pessoa raiz da árvore (ponto de partida da vitrine)</label>
+                        </div>
+                    </div>
+                </div>
+            }
+        </section>
+
+        <div class="re-actions">
+            <button type="submit" class="btn btn-primary" disabled="@saving">Salvar</button>
+            @if (IsNew)
+            {
+                <button type="button" class="btn btn-outline-primary" disabled="@saving" @onclick="() => Save(true)"><span class="d-none d-sm-inline">Salvar e adicionar outro</span><span class="d-sm-none">Salvar + outro</span></button>
+            }
+            <a class="btn btn-link ms-auto" href="@BackUrl">Cancelar</a>
+        </div>
+    </EditForm>
+</div>
+}
+
+<datalist id="places">
+    @foreach (var p in places)
+    {
+        <option value="@p"></option>
+    }
+</datalist>
+<datalist id="countries">
+    @foreach (var c in countries)
+    {
+        <option value="@c"></option>
+    }
+</datalist>
+
+@code {
+    [Parameter] public int? Id { get; set; }
+    // Quick link from other screens: /admin/new?of=3&as=child&back=tree
+    [SupplyParameterFromQuery(Name = "of")] public int? Of { get; set; }
+    [SupplyParameterFromQuery(Name = "as")] public string? As { get; set; }
+    [SupplyParameterFromQuery(Name = "back")] public string? Back { get; set; }
+    [SupplyParameterFromQuery(Name = "saved")] public string? Saved { get; set; }
+
+    static readonly (string Key, string Label)[] LinkTypes =
+    [
+        ("child", "Filho(a) de"), ("spouse", "Cônjuge de"), ("sibling", "Irmão(ã) de"), ("father", "Pai de"), ("mother", "Mãe de")
+    ];
+    static readonly string[] NameParticles = ["de", "da", "do", "dos", "das", "e"];
+
+    Relative model = new();
+    EditContext editContext = default!;
+    List<Relative> all = [];
+    List<string> places = [], countries = [];
+    int rootId;
+    string? linkAs;
+    int? linkOf;
+    bool loaded, saving, uploading, showMore, relationshipEdited;
+    string? error, savedName;
+
+    bool IsNew => Id is null;
+    Relative? LinkPerson => linkOf is { } id ? all.FirstOrDefault(p => p.Id == id) : null;
+    string BackUrl => Back == "tree" ? "/" : "admin";
+
+    string NewLink(string kind, int of) => $"admin/new?of={of}&as={kind}{(Back == "tree" ? "&back=tree" : "")}";
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await using var db = await DbFactory.CreateDbContextAsync();
+        all = await db.Relatives.AsNoTracking().OrderBy(r => r.Name).ToListAsync();
+        rootId = FamilyTreeService.RootId(all);
+        places = all.SelectMany(r => new[] { r.BirthPlace, r.DeathPlace }).OfType<string>().Distinct().Order().ToList();
+        countries = all.Select(r => r.BirthCountry).OfType<string>().Distinct().Order().ToList();
+
+        error = null;
+        savedName = Saved;
+        relationshipEdited = false;
+        showMore = false;
+        if (Id is { } id)
+        {
+            var r = all.FirstOrDefault(x => x.Id == id);
+            if (r is null) { Nav.NavigateTo("admin"); return; }
+            model = Clone(r);
+            all.Remove(r);
+            relationshipEdited = !string.IsNullOrWhiteSpace(model.Relationship);
+            linkAs = null; linkOf = null;
+        }
+        else
+        {
+            // New person: reuse the most common country as default
+            model = new() { Confidence = "Confirmado", BirthCountry = MostCommonCountry, IsDeceased = false };
+            linkAs = As is "child" or "spouse" or "sibling" or "father" or "mother" ? As : null;
+            linkOf = Of;
+            ApplyLink();
+        }
+        editContext = new EditContext(model);
+        loaded = true;
+    }
+
+    string? MostCommonCountry => all.Where(r => r.BirthCountry is not null).GroupBy(r => r.BirthCountry)
+        .OrderByDescending(g => g.Count()).FirstOrDefault()?.Key;
+
+    // ---------- quick link ----------
+
+    void SetLinkType(string key)
+    {
+        linkAs = linkAs == key ? null : key;
+        ApplyLink();
+    }
+
+    void SetLinkOf(int? id)
+    {
+        linkOf = id;
+        ApplyLink();
+    }
+
+    // People most likely to be linked: the root's close family first
+    IEnumerable<Relative> QuickLinkSuggestions
+    {
+        get
+        {
+            var root = all.FirstOrDefault(r => r.Id == rootId);
+            if (root is null) return [];
+            return new[] { root }.Concat(FamilyTreeService.SiblingsOf(all, root))
+                .Concat(all.Where(r => r.Id == root.FatherId || r.Id == root.MotherId));
+        }
+    }
+
+    void ApplyLink()
+    {
+        model.FatherId = model.MotherId = model.SpouseId = null;
+        if (LinkPerson is { } x && linkAs is not null)
+        {
+            switch (linkAs)
+            {
+                case "child":
+                    if (x.Sex == "M") model.FatherId = x.Id; else model.MotherId = x.Id;
+                    // Other parent: the only spouse of x, if there is exactly one
+                    var spouses = FamilyTreeService.SpousesOf(all, x).ToList();
+                    if (spouses.Count == 1)
+                    {
+                        if (spouses[0].Sex == "M") model.FatherId ??= spouses[0].Id; else model.MotherId ??= spouses[0].Id;
+                    }
+                    model.BirthCountry = x.BirthCountry ?? model.BirthCountry;
+                    break;
+                case "sibling":
+                    model.FatherId = x.FatherId;
+                    model.MotherId = x.MotherId;
+                    model.BirthCountry = x.BirthCountry ?? model.BirthCountry;
+                    break;
+                case "spouse":
+                    model.SpouseId = x.Id;
+                    model.Sex = x.Sex == "M" ? "F" : "M";
+                    break;
+                case "father":
+                    model.Sex = "M";
+                    break;
+                case "mother":
+                    model.Sex = "F";
+                    break;
+            }
+        }
+        RecalculateRelationship(force: false);
+    }
+
+    string? LinkHint
+    {
+        get
+        {
+            if (LinkPerson is not { } x || linkAs is null) return null;
+            string? Name(int? id) => id is null ? null : all.FirstOrDefault(p => p.Id == id)?.Name;
+            return linkAs switch
+            {
+                "child" when model.FatherId is not null && model.MotherId is not null => $"Pais preenchidos: {Name(model.FatherId)} e {Name(model.MotherId)}.",
+                "child" => $"{(x.Sex == "M" ? "Pai" : "Mãe")} preenchido(a). Escolha o outro genitor abaixo, se souber.",
+                "sibling" => "Mesmos pais preenchidos. Ajuste abaixo se for meio-irmão.",
+                "spouse" => $"Será ligado(a) como cônjuge de {x.Name}.",
+                "father" => $"Ao salvar, vira o pai de {x.Name}.",
+                "mother" => $"Ao salvar, vira a mãe de {x.Name}.",
+                _ => null
+            };
+        }
+    }
+
+    // ---------- family fields ----------
+
+    void SetFather(int? id) { model.FatherId = id; RecalculateRelationship(force: false); }
+    void SetMother(int? id) { model.MotherId = id; RecalculateRelationship(force: false); }
+    void SetSpouse(int? id) { model.SpouseId = id; if (id is not null) model.SpouseName = null; RecalculateRelationship(force: false); }
+    void SetSex(string sex) { model.Sex = sex; RecalculateRelationship(force: false); }
+
+    // Partners of the chosen father/mother, as one-click suggestions for the other parent
+    IEnumerable<Relative> FatherSuggestions => model.MotherId is { } m && all.FirstOrDefault(p => p.Id == m) is { } mother
+        ? FamilyTreeService.SpousesOf(all, mother).Where(s => s.Sex == "M") : [];
+    IEnumerable<Relative> MotherSuggestions => model.FatherId is { } f && all.FirstOrDefault(p => p.Id == f) is { } father
+        ? FamilyTreeService.SpousesOf(all, father).Where(s => s.Sex == "F") : [];
+
+    List<string> SurnameSuggestions
+    {
+        get
+        {
+            static List<string> Surnames(Relative? r) => r is null ? [] :
+                r.Name.Split(' ', StringSplitOptions.RemoveEmptyEntries).Skip(1)
+                    .Where(w => !NameParticles.Contains(w.ToLowerInvariant())).ToList();
+            var father = Surnames(all.FirstOrDefault(p => p.Id == model.FatherId));
+            var mother = Surnames(all.FirstOrDefault(p => p.Id == model.MotherId));
+            var list = new List<string>();
+            // Brazilian convention: mother's surname + father's surname
+            if (mother.Count > 0 && father.Count > 0) list.Add($"{mother[0]} {father[^1]}");
+            if (father.Count > 0) list.Add(father[^1]);
+            if (mother.Count > 0) list.Add(mother[0]);
+            var current = model.Name ?? "";
+            return list.Distinct().Where(s => !current.EndsWith(s, StringComparison.OrdinalIgnoreCase)).Take(3).ToList();
+        }
+    }
+
+    void AppendSurname(string surname) => model.Name = $"{model.Name?.Trim()} {surname}".Trim();
+
+    void RecalculateRelationship() => RecalculateRelationship(force: true);
+
+    // Relationship to the root, computed on a copy of the tree that includes this (unsaved) person
+    void RecalculateRelationship(bool force)
+    {
+        if (!force && relationshipEdited) return;
+        const int tempId = -1;
+        var me = Clone(model);
+        if (IsNew) me.Id = tempId;
+        var graph = all.Select(r =>
+        {
+            if (LinkPerson is { } x && r.Id == x.Id && linkAs is "father" or "mother")
+            {
+                var c = Clone(r);
+                if (linkAs == "father") c.FatherId = me.Id; else c.MotherId = me.Id;
+                return c;
+            }
+            return r;
+        }).Append(me).ToList();
+        var k = FamilyTreeService.Kinship(graph, rootId, me.Id);
+        if (k is not null || force) model.Relationship = k;
+        if (force) relationshipEdited = false;
+    }
+
+    // ---------- photo ----------
+
+    async Task UploadPhoto(InputFileChangeEventArgs e)
+    {
+        error = null;
+        uploading = true;
+        try { model.PhotoUrl = await Photos.SaveAsync(e.File); }
+        catch (Exception ex) { error = ex.Message; }
+        finally { uploading = false; }
+    }
+
+    // ---------- save ----------
+
+    async Task Save(bool addAnother)
+    {
+        error = null;
+        if (!editContext.Validate()) return;
+        if (model.FatherId is not null && model.FatherId == model.MotherId) { error = "Pai e mãe não podem ser a mesma pessoa."; return; }
+        if (IsNew && linkAs is not null && linkOf is null) { error = "Escolha de quem essa pessoa é parente (ou desmarque a ligação)."; return; }
+
+        saving = true;
+        try
+        {
+            if (string.IsNullOrWhiteSpace(model.Relationship)) RecalculateRelationship(force: true);
+            await using var db = await DbFactory.CreateDbContextAsync();
+            if (model.IsRoot)
+                await db.Relatives.Where(x => x.IsRoot && x.Id != model.Id).ExecuteUpdateAsync(s => s.SetProperty(x => x.IsRoot, false));
+            if (model.IsDeceased != true) { model.DeathDate = null; model.DeathPlace = null; model.BurialPlace = null; }
+
+            var entity = Clone(model);
+            if (IsNew) db.Relatives.Add(entity); else db.Relatives.Update(entity);
+            await db.SaveChangesAsync();
+
+            // Links that live on the other person
+            if (IsNew && LinkPerson is { } x)
+            {
+                var other = await db.Relatives.FirstAsync(r => r.Id == x.Id);
+                if (linkAs == "father") other.FatherId = entity.Id;
+                if (linkAs == "mother") other.MotherId = entity.Id;
+                if (linkAs == "spouse") other.SpouseId ??= entity.Id;
+                await db.SaveChangesAsync();
+            }
+
+            if (addAnother)
+            {
+                var query = $"admin/new?saved={Uri.EscapeDataString(entity.Name)}";
+                if (linkAs is not null && linkOf is not null) query += $"&of={linkOf}&as={linkAs}";
+                if (Back == "tree") query += "&back=tree";
+                Nav.NavigateTo(query);
+            }
+            else Nav.NavigateTo(BackUrl);
+        }
+        catch (Exception ex) { error = ex.Message; }
+        finally { saving = false; }
+    }
+
+    static Relative Clone(Relative r) => new()
+    {
+        Id = r.Id, Name = r.Name, OtherNames = r.OtherNames, Nickname = r.Nickname, Sex = r.Sex, Relationship = r.Relationship,
+        BirthDate = r.BirthDate, BirthPlace = r.BirthPlace, BirthCountry = r.BirthCountry,
+        IsDeceased = r.IsDeceased, DeathDate = r.DeathDate, DeathPlace = r.DeathPlace, BurialPlace = r.BurialPlace,
+        FatherId = r.FatherId, MotherId = r.MotherId, SpouseId = r.SpouseId, SpouseName = r.SpouseName,
+        Occupation = r.Occupation, TaxId = r.TaxId, PhotoUrl = r.PhotoUrl, Confidence = r.Confidence,
+        Biography = r.Biography, Notes = r.Notes, Sources = r.Sources, IsRoot = r.IsRoot
+    };
+}

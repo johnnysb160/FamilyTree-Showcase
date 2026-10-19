@@ -1,0 +1,84 @@
+@using System.Globalization
+
+<div class="pp">
+    @if (Selected is { } s)
+    {
+        <div class="pp-chip">
+            <Avatar Person="s" Css="ft-avatar-xs" />
+            <span class="pp-text"><b>@s.Name</b><small>@Describe(s)</small></span>
+            <button type="button" class="btn-close" title="Remover" @onclick="() => Pick(null)"></button>
+        </div>
+    }
+    else
+    {
+        <input class="form-control" placeholder="@Placeholder" value="@query"
+               @oninput="e => { query = e.Value?.ToString() ?? string.Empty; open = true; }"
+               @onfocus="() => open = true" @onblur="() => open = false" />
+        @if (open && Matches.Count > 0)
+        {
+            <div class="pp-list">
+                @foreach (var m in Matches)
+                {
+                    <button type="button" @onmousedown="() => Pick(m)">
+                        <Avatar Person="m" Css="ft-avatar-xs" />
+                        <span class="pp-text"><b>@m.Name</b><small>@Describe(m)</small></span>
+                    </button>
+                }
+            </div>
+        }
+        @if (SuggestionList.Count > 0)
+        {
+            <div class="pp-suggestions">
+                @foreach (var m in SuggestionList)
+                {
+                    <button type="button" @onclick="() => Pick(m)">+ @FirstAndLast(m.Name)</button>
+                }
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public List<Relative> People { get; set; } = [];
+    [Parameter] public int? Value { get; set; }
+    [Parameter] public EventCallback<int?> ValueChanged { get; set; }
+    // "M" / "F" to restrict the list
+    [Parameter] public string? Sex { get; set; }
+    [Parameter] public int? Exclude { get; set; }
+    [Parameter] public string Placeholder { get; set; } = "Buscar pessoa…";
+    // One-click candidates shown under the empty field
+    [Parameter] public IEnumerable<Relative>? Suggestions { get; set; }
+
+    string query = "";
+    bool open;
+
+    static readonly CompareInfo Compare = new CultureInfo("pt-BR").CompareInfo;
+
+    Relative? Selected => Value is { } id ? People.FirstOrDefault(p => p.Id == id) : null;
+
+    IEnumerable<Relative> Candidates => People.Where(p => p.Id != Exclude && (Sex is null || p.Sex == Sex));
+
+    List<Relative> SuggestionList => (Suggestions ?? []).Where(p => p.Id != Exclude && (Sex is null || p.Sex == Sex)).Take(4).ToList();
+
+    List<Relative> Matches => query.Trim().Length == 0
+        ? []
+        : Candidates.Where(p => Compare.IndexOf(p.Name, query.Trim(), CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace) >= 0
+                             || (p.OtherNames is { } o && Compare.IndexOf(o, query.Trim(), CompareOptions.IgnoreCase | CompareOptions.IgnoreNonSpace) >= 0))
+                    .Take(8).ToList();
+
+    static string Describe(Relative p) =>
+        string.Join(" · ", new[] { p.Relationship, p.Years }.Where(x => !string.IsNullOrWhiteSpace(x)));
+
+    static string FirstAndLast(string name)
+    {
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length <= 2 ? name : $"{parts[0]} {parts[^1]}";
+    }
+
+    async Task Pick(Relative? p)
+    {
+        query = "";
+        open = false;
+        await ValueChanged.InvokeAsync(p?.Id);
+    }
+}
