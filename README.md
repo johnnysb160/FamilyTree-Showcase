@@ -5,13 +5,35 @@
 ![Blazor](https://img.shields.io/badge/Blazor-Interactive%20Server-5C2D91)
 ![SQLite](https://img.shields.io/badge/SQLite-EF%20Core-003B57)
 
-FamilyTree is an interactive genealogy explorer built with Blazor. It renders the same relationship graph through three complementary visualizations and recalculates kinship labels from the point of view of any selected person.
+FamilyTree is an interactive genealogy system that turns a connected family dataset into a navigable, point-of-view-aware graph. It renders the same people and relationships through three complementary visualizations, calculates how every person is related to the current focus, and provides the editing workflow needed to evolve the tree without hand-maintaining relationship labels.
 
 > Every person, date, place, and relationship in this public repository is fictional. The private project and its real family history remain separate.
 
 ## Product snapshot
 
 ![FamilyTree with fictional showcase data](docs/images/family-tree.png)
+
+## Core user journey
+
+1. **Find or choose any person.** Search accepts the family dataset, the selected focus is reflected in the URL, and the last choice can be restored locally for the next visit.
+2. **Rebuild the tree around that point of view.** Parents, children, siblings, partners, co-parents, ancestors, and descendants are recalculated around the selected person.
+3. **Switch visual models without changing the data.** Multidirectional exploration, animated lineage treegraph, and generation-based family tree all consume stable person identifiers from the same graph service.
+4. **Navigate inside the graph.** Directional controls expand or collapse parents, children, and sibling branches; zoom, pan, fit, centered selection, and mobile compaction keep large trees usable.
+5. **Inspect the human story.** A details drawer combines calculated kinship with names, dates, places, life events, occupation, notes, spouse/co-parent context, and direct navigation to related people.
+6. **Maintain the dataset.** Administrative screens create or edit relatives, attach parents and spouses, upload photos outside source control, and offer relationship-aware shortcuts such as adding a child, spouse, or sibling from the current person.
+
+## Product depth
+
+| Area | Capabilities |
+|---|---|
+| Relationship engine | Nearest-common-ancestor traversal, ancestor-depth maps, gender-aware kinship, paternal/maternal context, descendants, cousins, spouses, and co-parents |
+| Multidirectional view | Focus-centered cards with independent parent, child, and sibling navigation and direct recentering |
+| Lineage treegraph | Animated Bézier hierarchy for ancestor or descendant branches, expand/collapse controls, and automatic fit |
+| Family tree | Generation layout, household and partner connections, shared-child links, branch visibility controls, and responsive positioning |
+| Person experience | Search, remembered focus, shareable focus URL, details drawer, life-event timeline, relation chips, photos, notes, and related-person navigation |
+| Administration | Relative list, create/edit form, parent and spouse pickers, contextual add-relative flows, photo storage, and EF Core persistence |
+| Integration surface | Flat family graph plus ancestor, descendant, and bidirectional Minimal API representations |
+| Verification | Tests for traversal and kinship rules, fresh-database migration in CI, fictional seed validation, and a zero-service SQLite setup |
 
 ## What makes it interesting
 
@@ -22,6 +44,10 @@ FamilyTree is an interactive genealogy explorer built with Blazor. It renders th
 - **Administrative workflow:** create and edit relatives while preserving graph consistency.
 - **API-first data:** flat and hierarchical JSON endpoints serve the same data used by the UI.
 - **Local persistence:** EF Core migrations and SQLite provide a zero-service development experience.
+
+## The graph problem behind the interface
+
+Kinship is not stored as a brittle text field. For a selected pair, the service builds ancestor-depth maps, finds the nearest common ancestor, classifies the path, and only then applies generation, gender, and family-side wording. Explicit spouse links remain distinct from people who merely share a child, so the UI can represent spouses and co-parents without inventing a marriage.
 
 ## Architecture
 
@@ -105,4 +131,3 @@ Real genealogical information is personal data. This public version therefore us
 ## Source availability
 
 This repository is published for portfolio review. No open-source license is granted unless a license file is added later.
-
